@@ -1,0 +1,228 @@
+MERN app
+
+Backend: Nodejs, express
+Database: MongoDb
+Frontend: React
+
+Terminal:
+> git init
+> mkdir server
+> cd server | npm init
+> npm i express jsonwebtoken mongoose(ORM-object relational model) dotenv argon2 cors
+> npm i --save-dev nodemon (auto reload)
+
+server/package.json
+> add "server": "nodemon index" into "Scripts"
+
+server/index.js
+require('dotenv').config()
+const express = require('express')
+const mongoose = require('mongoose')
+
+const authRouter = require('./routes/auth')
+const postRouter = require('./routes/post')
+
+const connectDB = async () => {
+	try {
+		await mongoose.connect(Link, {
+			useCreateIndex: true,
+			useNewUrlParser: true,
+			useUnifiedTopology: true,
+			useFindAndModify: true
+		})
+		console.log('Mongo is connected')
+	} catch (error) {
+		console.log(error.message)
+		process.exit(1)
+	}
+}
+
+philong29420000:2942000Long
+
+connectDB()
+
+const app = express()
+app.user(express.json())
+app.use('/api/auth', authRouter) %route to auth.js
+app.use('/api/post', postRouter) %route to post.js
+
+const PORT = 5000
+
+app.listen(PORT, () => console.log('Server start on port ${PORT}'))
+
+server/request.http (install extention REST client or POSTMAN)
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+	"username": "zonglnu",
+	"password": "123456"
+}
+
+
+set up mongoDb - go to cloud.mongodb.com - register account
+=> new project > name project > build cluster > choose server cluster > name cluster > waiting 3-5min
+=> connect > add a connect (allow access anyway) > create a database user > choose a connection method > connect your application > copy link
+
+server/modeljs/User.js
+const mongoose = require('mongoose')
+const Schema = mongoose.Schema
+
+const UserSchema = new Schema({
+	username: {
+		type: String,
+		require: true,
+		unique: true
+	},
+	password: {
+		type: String,
+		require: true
+	},
+	createAt: {
+		type: Date,
+		default: Date.now
+	}
+})
+
+module.exports = mongoose.model('users', UserSchema)
+
+server/modeljs/Post.js
+const mongoose = require('mongoose')
+const Schema = mongoose.Schema
+
+const PostSchema = new Schema({
+	title: {
+		type: String,
+		require: true,
+	},
+	description: {
+		type: String
+	},
+	url: {
+		type: String
+	},
+	status: {
+		type: String,
+		enum: ['TO LEARN', 'LEARNING', 'LEANRNED']
+	},
+	user: {
+		type: Schema.Types.ObjectId,
+		ref: 'users'
+	}
+})
+
+module.exports = mongoose.model('posts', PostSchema)
+
+server/routes/auth.js
+const express = require('express')
+const router = express.Router()
+const argon2 = require('argon2')
+const jwt = require('jsonwebtoken')
+
+const User = require('../models/User')
+
+// @route POST api/auth/register
+// @desc Register user
+// @access public
+router.post('/register', async(req, res) => {
+	const {username, password} = req.body
+	
+	// simple validation
+	if (!username || !password)
+	return res.status(400).json({succes: false, message: 'Missing username and/or password'})
+	
+	try {
+		// Check for existing user
+		const user = await User.findOne({ username })
+		
+		if (user)
+		return res.status(400).json({succes: false, message: 'Username already exist'})
+		
+		// all good
+		const hashPassword = await argon2.hash(password)
+		const newUser = new User ({username, password: hashPassword})
+		
+		await newUser.save()
+		
+		// return token
+		const accesToken = jwt.sign({ userId: newUser._id }, process.env.ACCESS_TOKEN_SECRET)
+		
+		res.json({success: true, message: 'User register successfully', accesToken})
+	} catch (error) {
+		console.log(error)
+		res.status(500).json({success: false, message: 'Internal server error'})
+	}
+}
+
+// @route POST api/auth/login
+// @desc Login user
+// @access public
+router.post('/login', async(req, res) => {
+	const{username, password} = req.body
+	
+	// simple validation
+	if (!username || !password)
+	return res.status(400).json({succes: false, message: 'Missing username and/or password'})
+	
+	try {
+		//check for existing user
+		const user = await User.findOne({username})
+		if(!user)
+		return res.status(400).json({success: false, message: 'Incorrect username or password'})
+		
+		// Username found
+		cons password valid = await argon2.verify(user.password, password)
+		if (!passwordValid)
+	    return res.status(400).json({success: false, message: 'Incorrect username or password'})
+		
+		//all good
+		// return token
+		const accesToken = jwt.sign({ userId: user._id }, process.env.ACCESS_TOKEN_SECRET)
+		
+		res.json({success: true, message: 'User logged successfully', accesToken})
+	} catch (error) {
+		console.log(error)
+		res.status(500).json({success: false, message: 'Internal server error'})
+	}
+})
+
+module.exports = router
+
+server/routes/post.js
+const express = require('express')
+const router = express.Router()
+
+const Post = require('../models/Post')
+
+// @route POST api/posts
+// @desc Create post
+// @access Private
+route.post('/', async(req, res) => {
+	const{title, description, url, status} = req.body
+	
+	if(!title)
+	return res.status(400).json({success: false, message: 'Title is required'})
+	
+	try {
+		const newPost = new Post({
+			title,
+			description,
+			url: url.startWith('https://') ? url : 'https://${url}'
+			status: status || 'TO LEARN',
+			user: 'userId'
+		})
+		
+		await newPost.save()
+		
+		res.json({success: true, message: 'Happy'}, post: newPost)
+	} catch (error) {
+	
+	}
+})
+
+module.exports = router
+
+server/.env
+DB_USERNAME=zonglu
+DB_PASSWORD=12345
+ACCESS_TOKEN_SECRET=alshqwlxpcuqwelbzxvcckqqwje
