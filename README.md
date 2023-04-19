@@ -1,2 +1,2 @@
-# mern_app
-MERN application
+# money_manager
+Money Manager Application
